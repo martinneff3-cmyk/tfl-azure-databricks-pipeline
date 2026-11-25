@@ -1,0 +1,838 @@
+{
+  "datasets": [
+    {
+      "name": "e9c3cdf9",
+      "displayName": "gold_line_reliability",
+      "config": {
+        "version": "1.1",
+        "source": "try_project_cat.try_project_sch.gold_line_reliability",
+        "dimensions": [
+          {
+            "expr": "source.*"
+          }
+        ],
+        "measures": [
+          {
+            "name": "count",
+            "expr": "COUNT(*)",
+            "comment": "Represents the total number of rows in the dataset. Use this measure to count all",
+            "displayName": "Count"
+          }
+        ]
+      }
+    },
+    {
+      "name": "727090cf",
+      "displayName": "gold_status_daily",
+      "config": {
+        "version": "1.1",
+        "source": "try_project_cat.try_project_sch.gold_status_daily"
+      }
+    },
+    {
+      "name": "dcebd189",
+      "displayName": "gold_line_status_snapshot",
+      "config": {
+        "version": "1.1",
+        "source": "try_project_cat.try_project_sch.gold_line_status_snapshot",
+        "dimensions": [
+          {
+            "expr": "source.*"
+          }
+        ],
+        "measures": [
+          {
+            "name": "count",
+            "expr": "COUNT(*)",
+            "comment": "Represents the total number of rows in the dataset. Use this measure to count all",
+            "displayName": "Count"
+          }
+        ]
+      }
+    },
+    {
+      "name": "ae07aad3",
+      "displayName": "Aggregate Count of Gold Line Reliability Entries",
+      "queryLines": [
+        "SELECT \r\n",
+        "COUNT(line_id) AS total_lines\r\n",
+        " FROM tfl_pipeline.gold.line_reliability"
+      ],
+      "catalog": "try_project_cat",
+      "schema": "try_project_sch"
+    },
+    {
+      "name": "a845047e",
+      "displayName": "Good Service Count",
+      "queryLines": [
+        "SELECT\r\n",
+        "COUNT(statusSeverityDescription) AS good_service\r\n",
+        "FROM tfl_pipeline.gold.line_status_daily\r\n",
+        "WHERE observation_date = current_date()\r\n",
+        "    AND statusSeverityDescription = 'Good Service';"
+      ]
+    },
+    {
+      "name": "826a7a4a",
+      "displayName": "Other Status Count",
+      "queryLines": [
+        "SELECT\r\n",
+        "COUNT(statusSeverityDescription) AS other_statuses\r\n",
+        "FROM tfl_pipeline.gold.line_status_daily\r\n",
+        "WHERE observation_date = current_date() AND statusSeverityDescription != 'Good Service';"
+      ]
+    },
+    {
+      "name": "1e48d107",
+      "displayName": "Daily Gold Status Overview",
+      "queryLines": [
+        "SELECT\r\n",
+        "statusSeverityDescription AS Status,\r\n",
+        "COUNT(statusSeverityDescription) AS Count\r\n",
+        "FROM tfl_pipeline.gold.line_status_daily\r\n",
+        "WHERE observation_date = current_date()\r\n",
+        "GROUP BY statusSeverityDescription"
+      ]
+    },
+    {
+      "name": "ced0af97",
+      "displayName": "Daily special and minor",
+      "queryLines": [
+        "WITH status_count AS (\r\n",
+        "SELECT\r\n",
+        "statusSeverityDescription AS Status,\r\n",
+        "COUNT(statusSeverityDescription) AS Count\r\n",
+        "FROM tfl_pipeline.gold.line_status_daily\r\n",
+        "WHERE observation_date = current_date()\r\n",
+        "GROUP BY statusSeverityDescription\r\n",
+        ")\r\n",
+        "SELECT\r\n",
+        "Status,\r\n",
+        "Count\r\n",
+        "FROM status_count\r\n",
+        "WHERE Count = (SELECT MIN(Count) FROM status_count)\r\n",
+        "\r\n"
+      ]
+    },
+    {
+      "name": "39cf2aca",
+      "displayName": "balkendiagramm",
+      "queryLines": [
+        "SELECT \r\n",
+        "observation_date,\r\n",
+        "statusSeverityDescription,\r\n",
+        "SUM(observation_count)\r\n",
+        "FROM tfl_pipeline.gold.line_status_daily\r\n",
+        "WHERE statusSeverityDescription != 'Good Service' AND statusSeverityDescription != \"Special Service\"\r\n",
+        "GROUP BY observation_date, statusSeverityDescription\r\n",
+        "\r\n",
+        "\r\n",
+        "\r\n",
+        "\r\n"
+      ]
+    },
+    {
+      "name": "2671ca5f",
+      "displayName": "Daily Delay",
+      "queryLines": [
+        "SELECT\r\n",
+        "    observation_date,\r\n",
+        "    ROUND(\r\n",
+        "        100.0 * SUM(\r\n",
+        "            CASE\r\n",
+        "                WHEN statusSeverity IN (6, 9)\r\n",
+        "                THEN observation_count\r\n",
+        "                ELSE 0\r\n",
+        "            END\r\n",
+        "        ) / NULLIF(SUM(observation_count), 0),\r\n",
+        "        2\r\n",
+        "    ) AS daily_delay_pct\r\n",
+        "FROM tfl_pipeline.gold.line_status_daily\r\n",
+        "GROUP BY observation_date\r\n",
+        "ORDER BY observation_date;"
+      ]
+    },
+    {
+      "name": "a5768e98",
+      "displayName": "Monthly Line Comparison",
+      "queryLines": [
+        "SELECT\r\n",
+        "    line_id,\r\n",
+        "    year_month,\r\n",
+        "    total_observations,\r\n",
+        "    delay_observations_pct,\r\n",
+        "    ROUND(good_service_observations / total_observations * 100, 2) AS good_service_pct,\r\n",
+        "    special_or_delay_pct\r\n",
+        "FROM tfl_pipeline.gold.line_reliability\r\n",
+        "WHERE year_month = '2026-11'\r\n",
+        "  AND line_id IN (\r\n",
+        "      'bakerloo',\r\n",
+        "      'central',\r\n",
+        "      'circle',\r\n",
+        "      'district',\r\n",
+        "      'hammersmith-city',\r\n",
+        "      'jubilee',\r\n",
+        "      'metropolitan',\r\n",
+        "      'northern',\r\n",
+        "      'piccadilly',\r\n",
+        "      'victoria',\r\n",
+        "      'waterloo-city'\r\n",
+        "  )\r\n",
+        "ORDER BY delay_observations_pct DESC\r\n",
+        "LIMIT 10;\r\n",
+        "\r\n"
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "name": "5193e0fd",
+      "displayName": "Tfl_Service_monitor_dash",
+      "layout": [
+        {
+          "widget": {
+            "name": "4489787c",
+            "spec": {
+              "widgetType": "text",
+              "version": 1,
+              "encodings": {
+                "text": {
+                  "lines": [
+                    "# Tfl Service Monitoring\n",
+                    "\n",
+                    "Dashboard-Konzept-1"
+                  ],
+                  "fields": []
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 0,
+            "width": 12,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "d8a389c0",
+            "spec": {
+              "widgetType": "text",
+              "version": 1,
+              "encodings": {
+                "text": {
+                  "lines": [
+                    "### Current network overview"
+                  ],
+                  "fields": []
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 2,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "total-lines",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ae07aad3",
+                  "fields": [
+                    {
+                      "name": "sum(total_lines)",
+                      "expression": "SUM(`total_lines`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Total Lines",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(total_lines)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 3,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "good-services",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a845047e",
+                  "fields": [
+                    {
+                      "name": "sum(good_service)",
+                      "expression": "SUM(`good_service`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Good Services",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(good_service)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 4,
+            "y": 3,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "other-statuses",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "826a7a4a",
+                  "fields": [
+                    {
+                      "name": "sum(other_statuses)",
+                      "expression": "SUM(`other_statuses`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Other Statuses",
+                  "fields": []
+                }
+              },
+              "version": 2,
+              "widgetType": "counter",
+              "encodings": {
+                "value": {
+                  "fieldName": "sum(other_statuses)"
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 8,
+            "y": 3,
+            "width": 4,
+            "height": 2
+          }
+        },
+        {
+          "widget": {
+            "name": "98c3b790",
+            "spec": {
+              "widgetType": "text",
+              "version": 1,
+              "encodings": {
+                "text": {
+                  "lines": [
+                    "### Historical Status Analysis"
+                  ],
+                  "fields": []
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 8,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "a3373e42",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "39cf2aca",
+                  "fields": [
+                    {
+                      "name": "statusSeverityDescription",
+                      "expression": "`statusSeverityDescription`"
+                    },
+                    {
+                      "name": "daily(observation_date)",
+                      "expression": "DATE_TRUNC(\"DAY\", `observation_date`)"
+                    },
+                    {
+                      "name": "sum(sum(observation_count))",
+                      "expression": "SUM(`sum(observation_count)`)"
+                    }
+                  ],
+                  "filters": [
+                    {
+                      "expression": "`statusSeverityDescription` IN ('Minor Delays', 'Severe Delays')"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Status per Day"
+              },
+              "version": 3,
+              "mark": {
+                "layout": "group"
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "daily(observation_date)",
+                  "displayName": "Date",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "sum(sum(observation_count))",
+                  "displayName": "Number of Observations",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "statusSeverityDescription",
+                  "displayName": "Status",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 9,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "4eec225b",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "2671ca5f",
+                  "fields": [
+                    {
+                      "name": "daily(observation_date)",
+                      "expression": "DATE_TRUNC(\"DAY\", `observation_date`)"
+                    },
+                    {
+                      "name": "avg(daily_delay_pct)",
+                      "expression": "AVG(`daily_delay_pct`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Daily Delay Rate"
+              },
+              "version": 3,
+              "widgetType": "line",
+              "encodings": {
+                "x": {
+                  "fieldName": "daily(observation_date)",
+                  "displayName": "Date",
+                  "scale": {
+                    "type": "temporal"
+                  }
+                },
+                "y": {
+                  "fieldName": "avg(daily_delay_pct)",
+                  "displayName": "Delay Rate (%)",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 9,
+            "width": 6,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "01662ed9",
+            "spec": {
+              "widgetType": "text",
+              "version": 1,
+              "encodings": {
+                "text": {
+                  "lines": [
+                    "### Monthly Line Comparision\n",
+                    "<p>&nbsp;</p>\n",
+                    "\n",
+                    "<p>&nbsp;</p>\n"
+                  ],
+                  "fields": []
+                }
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 15,
+            "width": 12,
+            "height": 1
+          }
+        },
+        {
+          "widget": {
+            "name": "830150a2",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "a5768e98",
+                  "fields": [
+                    {
+                      "name": "sum(total_observations)",
+                      "expression": "SUM(`total_observations`)"
+                    },
+                    {
+                      "name": "avg(good_service_pct)",
+                      "expression": "AVG(`good_service_pct`)"
+                    },
+                    {
+                      "name": "avg(special_or_delay_pct)",
+                      "expression": "AVG(`special_or_delay_pct`)"
+                    },
+                    {
+                      "name": "avg(delay_observations_pct)",
+                      "expression": "AVG(`delay_observations_pct`)"
+                    },
+                    {
+                      "name": "line_id",
+                      "expression": "`line_id`"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Monthly Underground Line Comparison"
+              },
+              "version": 3,
+              "mark": {
+                "colors": [
+                  "#1F6FB2"
+                ]
+              },
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "avg(delay_observations_pct)",
+                  "format": {
+                    "type": "number-plain",
+                    "abbreviation": "none",
+                    "decimalPlaces": {
+                      "type": "exact",
+                      "places": 2
+                    }
+                  },
+                  "formatTemplate": "{{ @formatted }}%",
+                  "axis": {
+                    "hideGrid": true
+                  },
+                  "displayName": "Delay Observations %",
+                  "scale": {
+                    "type": "quantitative",
+                    "domain": {
+                      "type": "custom",
+                      "min": 0,
+                      "max": 100
+                    }
+                  }
+                },
+                "y": {
+                  "fieldName": "line_id",
+                  "axis": {
+                    "hideTitle": true
+                  },
+                  "displayName": "Line",
+                  "scale": {
+                    "type": "categorical",
+                    "sort": {
+                      "by": "x-reversed"
+                    }
+                  }
+                },
+                "label": {
+                  "show": true
+                },
+                "extra": [
+                  {
+                    "fieldName": "sum(total_observations)",
+                    "format": {
+                      "type": "number-plain",
+                      "abbreviation": "none",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 0
+                      }
+                    },
+                    "displayName": "Total Observations"
+                  },
+                  {
+                    "fieldName": "avg(good_service_pct)",
+                    "format": {
+                      "type": "number-plain",
+                      "abbreviation": "none",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 2
+                      }
+                    },
+                    "formatTemplate": "{{ @formatted }}%",
+                    "displayName": "Good Service %"
+                  },
+                  {
+                    "fieldName": "avg(special_or_delay_pct)",
+                    "format": {
+                      "type": "number-plain",
+                      "abbreviation": "none",
+                      "decimalPlaces": {
+                        "type": "exact",
+                        "places": 2
+                      }
+                    },
+                    "formatTemplate": "{{ @formatted }}%",
+                    "displayName": "Special or Delay %"
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 16,
+            "width": 12,
+            "height": 6
+          }
+        },
+        {
+          "widget": {
+            "name": "ba09d203",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "1e48d107",
+                  "fields": [
+                    {
+                      "name": "Status",
+                      "expression": "`Status`"
+                    },
+                    {
+                      "name": "sum(Count)",
+                      "expression": "SUM(`Count`)"
+                    }
+                  ],
+                  "disaggregated": false
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": {
+                  "value": "Status Distribution Today",
+                  "fields": []
+                }
+              },
+              "version": 3,
+              "widgetType": "bar",
+              "encodings": {
+                "x": {
+                  "fieldName": "sum(Count)",
+                  "displayName": "Count",
+                  "scale": {
+                    "type": "quantitative"
+                  }
+                },
+                "color": {
+                  "fieldName": "Status",
+                  "displayName": "Status",
+                  "scale": {
+                    "type": "categorical"
+                  }
+                },
+                "label": {
+                  "show": true
+                }
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 0,
+            "y": 5,
+            "width": 6,
+            "height": 3
+          }
+        },
+        {
+          "widget": {
+            "name": "1a270708",
+            "queries": [
+              {
+                "name": "main_query",
+                "query": {
+                  "datasetName": "ced0af97",
+                  "fields": [
+                    {
+                      "name": "Status",
+                      "expression": "`Status`"
+                    },
+                    {
+                      "name": "Count",
+                      "expression": "`Count`"
+                    }
+                  ],
+                  "disaggregated": true,
+                  "orders": [
+                    {
+                      "direction": "ASC",
+                      "expression": "`Status`"
+                    }
+                  ]
+                }
+              }
+            ],
+            "spec": {
+              "frame": {
+                "showTitle": true,
+                "title": "Rarest status today"
+              },
+              "version": 2,
+              "widgetType": "table",
+              "encodings": {
+                "columns": [
+                  {
+                    "fieldName": "Status",
+                    "displayName": "Status"
+                  },
+                  {
+                    "fieldName": "Count",
+                    "displayName": "Count"
+                  }
+                ],
+                "rowOrder": [
+                  {
+                    "by": "column",
+                    "field": {
+                      "index": 0
+                    }
+                  }
+                ]
+              },
+              "data": {
+                "queryName": "main_query"
+              }
+            }
+          },
+          "position": {
+            "x": 6,
+            "y": 5,
+            "width": 6,
+            "height": 3
+          }
+        }
+      ],
+      "pageType": "PAGE_TYPE_CANVAS",
+      "layoutVersion": "GRID_V1"
+    }
+  ],
+  "uiSettings": {
+    "theme": {
+      "widgetHeaderAlignment": "ALIGNMENT_UNSPECIFIED"
+    },
+    "applyModeEnabled": false
+  }
+}
