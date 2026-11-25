@@ -138,11 +138,12 @@ The dashboard provides:
 
 The SQL queries and analytical definitions were developed as part of the project. Databricks AI assistance was also used to customize dashboard visualizations and layouts.
 
-### Dashboard Screenshots
+## Dashboard Screenshots
 
-**Initial Dashboard Deployment**
+### Initial Deployment
 
-*Screenshot to be added.*
+![TfL Dashboard - Initial Deployment](Screenshots/tfl_dashboard_screenshot_01.png)
+
 
 > This screenshot shows the dashboard shortly after its initial deployment. Historical data collection had only recently started, so time-series visualizations contain a limited number of observations.
 
