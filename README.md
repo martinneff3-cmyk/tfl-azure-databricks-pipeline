@@ -44,7 +44,6 @@ The ingestion process performs approximately 720 API requests per execution, col
 
 Source: [TfL Unified API](https://api.tfl.gov.uk/)
 
-## Data Architecture
 
 ## Data Architecture
 
