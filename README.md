@@ -4,13 +4,17 @@
 
 ## Project Overview
 
-This project implements a data engineering pipeline that collects public transport information from the TfL Unified API, stores the raw data in Azure Storage, and processes it through a **Medallion Architecture (Bronze, Silver, Gold)**.
+This project implements an event-driven data engineering pipeline that processes public transport data from the Transport for London (TfL) Unified API using Azure Databricks, PySpark, and Lakeflow Declarative Pipelines.
 
-The pipeline processes information about transport lines, service statuses, and disruptions across different TfL transport modes.
+A separate, scheduled API ingestion job simulates an external data provider by periodically delivering raw JSON files to cloud object storage.
 
-The resulting Gold tables provide curated datasets for a Databricks AI/BI Dashboard, enabling analysis of current service conditions, historical status observations, and monthly service performance.
+The Lakeflow pipeline operates independently of the API job. New files are detected through a **File Arrival Trigger**, which initiates processing through the Medallion Architecture (Bronze, Silver, Gold).
 
-The project focuses on building a structured, maintainable data pipeline using Azure Databricks rather than processing static datasets through standalone notebooks.
+The pipeline processes transport line information, primary and secondary service statuses, and disruption data across multiple TfL transport modes.
+
+The resulting Gold Materialized Views provide curated datasets for a Databricks AI/BI Dashboard, supporting current service monitoring, historical status analysis, and monthly line comparisons.
+
+The project was originally developed in Azure Databricks using Azure Storage and subsequently migrated to Databricks Free Edition with Amazon S3 for continued historical data collection.
 
 ## Technology Stack
 
@@ -20,8 +24,8 @@ The project focuses on building a structured, maintainable data pipeline using A
 | Apache Spark / PySpark | Distributed data transformations |
 | Lakeflow Declarative Pipelines | Declarative Bronze, Silver, and Gold processing |
 | Delta Lake | Storage format for processed tables |
-| Azure Storage | Storage of raw TfL API responses |
-| Databricks Jobs | Orchestration of API ingestion |
+| Azure Storage | Cloud object storage for simulated external file delivery |
+| Databricks Jobs | Scheduled API data delivery and independently triggered pipeline execution |
 | Unity Catalog | Data organization and governance |
 | Databricks SQL / AI/BI Dashboards | SQL-based analytics and visualization |
 | Git / GitHub | Version control and project documentation |
@@ -42,41 +46,63 @@ Source: [TfL Unified API](https://api.tfl.gov.uk/)
 
 ## Data Architecture
 
+## Data Architecture
+
 ```text
-TfL Unified API
-       |
-       v
-API Ingestion Job
-       |
-       v
-Azure Storage
-(Raw JSON Data)
-       |
-       v
-+-----------------------+
-| Bronze Layer          |
-| Raw ingestion         |
-+-----------------------+
-       |
-       v
-+-----------------------+
-| Silver Layer          |
-| Streaming Tables      |
-| Parsing & Validation  |
-| Data Normalization    |
-+-----------------------+
-       |
-       v
-+-----------------------+
-| Gold Layer            |
-| Materialized Views    |
-| Joins & Aggregations  |
-| Analytical Metrics    |
-+-----------------------+
-       |
-       v
-Databricks AI/BI Dashboard
+           TfL Unified API
+                  |
+                  v
+       Scheduled API Ingestion Job
+       (External Data Simulation)
+                  |
+                  v
+         Cloud Object Storage
+       (Azure Storage / Amazon S3)
+                  |
+                  | New JSON files arrive
+                  v
+          File Arrival Trigger
+                  |
+                  v
+       Independent Lakeflow Pipeline
+                  |
+                  v
+          +------------------+
+          | Bronze Layer     |
+          | Raw Ingestion    |
+          +------------------+
+                  |
+                  v
+          +------------------+
+          | Silver Layer     |
+          | Streaming Tables |
+          | Data Validation  |
+          | Normalization    |
+          +------------------+
+                  |
+                  v
+          +------------------+
+          | Gold Layer       |
+          | Materialized     |
+          | Views            |
+          | Analytics        |
+          +------------------+
+                  |
+                  v
+       Databricks AI/BI Dashboard
 ```
+
+### Event-Driven Processing
+
+The project separates data delivery from data processing to simulate a common enterprise data engineering scenario.
+
+A scheduled notebook job periodically retrieves TfL API data and writes the resulting JSON files to cloud object storage. This job acts as a simulated external data provider.
+
+The Lakeflow pipeline is managed independently and uses a File Arrival Trigger to detect incoming data. It does not depend on the execution status of the API ingestion job.
+
+A one-minute wait after the last detected file change provides an additional buffer before pipeline execution.
+
+This design demonstrates decoupled ingestion, event-driven processing, and the ability to process newly delivered files without directly orchestrating the upstream data provider.
 
 ### Bronze Layer – Raw Data Ingestion
 
@@ -183,9 +209,19 @@ The Gold layer therefore distinguishes between observed service statuses and act
 
 ## Deployment and Configuration
 
-The project was developed in **Azure Databricks** with Azure Storage integration.
+The project was originally developed and tested in **Azure Databricks**, using Azure Storage as the raw data landing zone.
 
-Deployment requires configuring the target workspace, storage access, secrets, and the relevant Unity Catalog objects before executing the ingestion and Lakeflow pipelines.
+Following the initial GitHub release, the project was successfully redeployed to a separate **Databricks Free Edition workspace**, using Amazon S3 for raw file storage.
+
+The same Git-versioned Bronze, Silver, and Gold transformation code is used across both environments, while storage configuration, secrets, and workspace-specific resources are configured separately.
+
+The deployment includes:
+
+- Unity Catalog setup through a DDL notebook.
+- Cloud object storage access and Secret Scope configuration.
+- A scheduled API ingestion job that simulates external data delivery.
+- An independently configured Lakeflow pipeline with a File Arrival Trigger.
+- Databricks AI/BI Dashboard datasets and visualizations.
 
 Environment-specific credentials and secrets are not included in this repository.
 
